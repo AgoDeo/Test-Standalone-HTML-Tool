@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>HTML → Multiple CSV Extractor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+    }
+    button, input[type=file] {
+      padding: 10px;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+    .table-preview {
+      margin-top: 20px;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background: #f9f9f9;
+      white-space: pre-wrap;
+    }
+    h3 {
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>HTML Table → Multiple CSV Converter</h1>
+  <p>Select an HTML file containing one or more tables:</p>
+  <input type="file" id="fileInput" accept=".html,.htm">
+  <br>
+  <button onclick="processFile()">Convert to CSV(s)</button>
+
+  <div id="preview"></div>
+
+  <script>
+    function csvEscape(field) {
+      if (field == null) return '';
+      const s = String(field);
+      return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    }
+
+    function tableToCSV(table) {
+      const rows = [];
+      for (let tr of table.querySelectorAll('tr')) {
+        const cells = Array.from(tr.querySelectorAll('th, td')).map(td => td.textContent.trim());
+        rows.push(cells.map(csvEscape).join(','));
+      }
+      return rows.join('\n');
+    }
+
+    function processFile() {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('Please select an HTML file first.');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const htmlContent = e.target.result;
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, 'text/html');
+
+        const tables = doc.querySelectorAll('table');
+        const previewDiv = document.getElementById('preview');
+        previewDiv.innerHTML = '';
+
+        if (!tables.length) {
+          previewDiv.textContent = 'No <table> found in HTML file.';
+          return;
+        }
+
+        tables.forEach((table, idx) => {
+          const csv = tableToCSV(table);
+
+          // Show preview
+          const h3 = document.createElement('h3');
+          h3.textContent = `Table ${idx + 1} (Preview)`;
+          const pre = document.createElement('div');
+          pre.className = 'table-preview';
+          pre.textContent = csv;
+          previewDiv.appendChild(h3);
+          previewDiv.appendChild(pre);
+
+          // Trigger CSV file download
+          const blob = new Blob([csv], { type: 'text/csv' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `${file.name.replace(/\.[^.]+$/, '')}_table${idx + 1}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
